@@ -89,7 +89,19 @@ object HadoopUtils extends Logger {
         if (kerberosEnable) {
           kerberosLogin()
         } else {
-          UserGroupInformation.createRemoteUser(hadoopUserName)
+          System.setProperty("HADOOP_USER_NAME", "hdfs")
+          val conf = new Configuration
+          conf.set(
+            "hadoop_security_authentication_tbds_secureid",
+            "kGAI9XB0C48EfeUwbiO1UuKmFFt0GkVgkhfC")
+          conf.set("hadoop_security_authentication_tbds_username", "espace_real_online")
+          conf.set("hadoop.security.authentication", "tbds")
+          conf.set(
+            "hadoop_security_authentication_tbds_securekey",
+            "0lgCn58kPFFghfmtDoda6KR8BmmW8RTK")
+          UserGroupInformation.setConfiguration(conf)
+          UserGroupInformation.loginUserFromSubject(null)
+          UserGroupInformation.getLoginUser
         }
       }
     }
@@ -338,5 +350,35 @@ object HadoopUtils extends Logger {
           java.lang.Long.parseLong(valueString)
       }
     }
+  }
+  def main(args: Array[String]): Unit = {
+    val conf = new Configuration
+    conf.set(
+      "hadoop_security_authentication_tbds_secureid",
+      "kGAI9XB0C48EfeUwbiO1UuKmFFt0GkVgkhfC"
+    )
+    conf.set("hadoop.security.authentication", "tbds")
+
+    conf.set(
+      "hadoop_security_authentication_tbds_username",
+      "espace_real_online"
+    )
+    conf.set(
+      "hadoop_security_authentication_tbds_securekey",
+      "0lgCn58kPFFghfmtDoda6KR8BmmW8RTK"
+    )
+    UserGroupInformation.setConfiguration(conf)
+    UserGroupInformation.loginUserFromSubject(null)
+    val user = UserGroupInformation.getLoginUser
+    println("asadsadas")
+    val fs = FileSystem.get(conf)
+    val path = new Path("/project/tougu/streampark")
+    val fileStatuses = fs.listStatus(path)
+    for (fileStatus <- fileStatuses) {
+      val isDir = fileStatus.isDirectory
+      val fullPath = fileStatus.getPath.toString
+      System.out.println("isDir:" + isDir + ",Path:" + fullPath)
+    }
+
   }
 }
