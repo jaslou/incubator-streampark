@@ -496,7 +496,6 @@
                         <consoleOutput>true</consoleOutput>
                         <includeTestSourceDirectory>false</includeTestSourceDirectory>
                         <failOnViolation>true</failOnViolation>
-                        <skip>true</skip>
                         <sourceDirectories>
                             <sourceDirectory>${project.build.sourceDirectory}</sourceDirectory>
                             <sourceDirectory>${project.build.testSourceDirectory}</sourceDirectory>
