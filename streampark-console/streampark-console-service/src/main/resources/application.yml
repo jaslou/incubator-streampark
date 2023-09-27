@@ -16,7 +16,7 @@
 #
 
 server:
-  port: 10000
+  port: 10066
   undertow:
     buffer-size: 1024
     direct-buffers: true
@@ -93,11 +93,11 @@ streampark:
     http-auth: sample
 
   # HADOOP_USER_NAME
-  hadoop-user-name: hdfs
+  hadoop-user-name: espace_real_online
   # local workspace, used to store source code and build dir etc.
   workspace:
     local: /opt/streampark_workspace
-    remote: hdfs://hdfscluster/streampark   # support hdfs:///streampark/ 、 /streampark 、hdfs://host:ip/streampark/
+    remote: hdfs:///project/tougu/streampark   # support hdfs:///streampark/ 、 /streampark 、hdfs://host:ip/streampark/
 
   # remote docker register namespace for streampark
   docker:

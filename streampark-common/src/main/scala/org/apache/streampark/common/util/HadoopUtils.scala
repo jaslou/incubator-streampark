@@ -25,7 +25,7 @@ import org.apache.commons.lang3.StringUtils
 import org.apache.hadoop.conf.Configuration
 import org.apache.hadoop.fs._
 import org.apache.hadoop.hdfs.DistributedFileSystem
-import org.apache.hadoop.security.UserGroupInformation
+import org.apache.hadoop.security.{SecurityUtil, UserGroupInformation}
 import org.apache.hadoop.service.Service.STATE
 import org.apache.hadoop.yarn.api.records.ApplicationId
 import org.apache.hadoop.yarn.client.api.YarnClient
@@ -47,6 +47,15 @@ object HadoopUtils extends Logger {
   private[this] lazy val HADOOP_HOME: String = "HADOOP_HOME"
   private[this] lazy val HADOOP_CONF_DIR: String = "HADOOP_CONF_DIR"
   private[this] lazy val CONF_SUFFIX: String = "/etc/hadoop"
+
+  private[this] lazy val HADOOP_SECURITY_ID: String = "hadoop_security_authentication_tbds_secureid"
+  private[this] lazy val SECURITY_ID: String = "kGAI9XB0C48EfeUwbiO1UuKmFFt0GkVgkhfC"
+  private[this] lazy val HADOOP_SECURITY: String = "hadoop_security_authentication_tbds_secureid"
+  private[this] lazy val SECURITY: String = "kGAI9XB0C48EfeUwbiO1UuKmFFt0GkVgkhfC"
+  private[this] lazy val TBDS_USERNAME_KEY: String = "hadoop_security_authentication_tbds_username"
+  private[this] lazy val TBDS_USERNAME_VALUE: String = "espace_real_online"
+  private[this] lazy val AUTHENTICATION: String = "hadoop.security.authentication"
+  private[this] lazy val AUTHENTICATION_VALULE: String = "tbds"
 
   private[this] var reusableYarnClient: YarnClient = _
 
@@ -89,7 +98,21 @@ object HadoopUtils extends Logger {
         if (kerberosEnable) {
           kerberosLogin()
         } else {
-          UserGroupInformation.createRemoteUser(hadoopUserName)
+          hadoopConf.set(HADOOP_SECURITY_ID, SECURITY_ID)
+          hadoopConf.set(TBDS_USERNAME_KEY, TBDS_USERNAME_VALUE)
+          hadoopConf.set(AUTHENTICATION, AUTHENTICATION_VALULE)
+          hadoopConf.set(HADOOP_SECURITY, SECURITY)
+          println(
+            "hadoop_security_authentication_tbds_secureid:" + hadoopConf.get(HADOOP_SECURITY_ID))
+          println(
+            "hadoop_security_authentication_tbds_username:" + hadoopConf.get(TBDS_USERNAME_KEY))
+          println("hadoop.security.authentication:" + hadoopConf.get(AUTHENTICATION))
+          println(
+            "hadoop_security_authentication_tbds_securekey：" + hadoopConf.get(HADOOP_SECURITY))
+          UserGroupInformation.setConfiguration(hadoopConf)
+          println("UserGroupInformation.setConfiguration(hadoopConf): ")
+          UserGroupInformation.loginUserFromSubject(null)
+          UserGroupInformation.getLoginUser
         }
       }
     }
@@ -167,6 +190,10 @@ object HadoopUtils extends Logger {
     reusableConf.set("fs.hdfs.impl", classOf[DistributedFileSystem].getName)
     reusableConf.set("fs.file.impl", classOf[LocalFileSystem].getName)
     reusableConf.set("fs.hdfs.impl.disable.cache", "true")
+    reusableConf.set(HADOOP_SECURITY_ID, SECURITY_ID)
+    reusableConf.set(TBDS_USERNAME_KEY, TBDS_USERNAME_VALUE)
+    reusableConf.set(AUTHENTICATION, AUTHENTICATION_VALULE)
+    reusableConf.set(HADOOP_SECURITY, SECURITY)
     reusableConf
   }
 
@@ -218,6 +245,34 @@ object HadoopUtils extends Logger {
       case Success(ugi) => ugi
       case Failure(e) => throw e
     }
+  }
+
+  def hdfsTbds: FileSystem = {
+    hadoopConf.set(HADOOP_SECURITY_ID, SECURITY_ID)
+    hadoopConf.set(TBDS_USERNAME_KEY, TBDS_USERNAME_VALUE)
+    hadoopConf.set(AUTHENTICATION, AUTHENTICATION_VALULE)
+    hadoopConf.set(HADOOP_SECURITY, SECURITY)
+    println("hadoop_security_authentication_tbds_secureid:" + hadoopConf.get(HADOOP_SECURITY_ID))
+    println("hadoop_security_authentication_tbds_username:" + hadoopConf.get(TBDS_USERNAME_KEY))
+    println("hadoop.security.authentication:" + hadoopConf.get(AUTHENTICATION))
+    println("hadoop_security_authentication_tbds_securekey：" + hadoopConf.get(HADOOP_SECURITY))
+    val pd = classOf[SecurityUtil].getProtectionDomain
+    println("ProtectionDomain：" + pd)
+    val authenticationMethod = SecurityUtil.getAuthenticationMethod(hadoopConf)
+    println("authenticationMethod:" + authenticationMethod)
+    UserGroupInformation.setConfiguration(hadoopConf)
+    println("UserGroupInformation.setConfiguration(conf): ")
+    UserGroupInformation.loginUserFromSubject(null)
+    UserGroupInformation.getLoginUser
+    val fs = FileSystem.get(hadoopConf)
+    val path = new Path("/project/tougu/streampark")
+    val fileStatuses = fs.listStatus(path)
+    for (fileStatus <- fileStatuses) {
+      val isDir = fileStatus.isDirectory
+      val fullPath = fileStatus.getPath.toString
+      System.out.println("isDir:" + isDir + ",Path:" + fullPath)
+    }
+    fs
   }
 
   def hdfs: FileSystem = {
@@ -338,5 +393,36 @@ object HadoopUtils extends Logger {
           java.lang.Long.parseLong(valueString)
       }
     }
+  }
+
+  def main(args: Array[String]): Unit = {
+    val conf = new Configuration
+    conf.set(
+      "hadoop_security_authentication_tbds_secureid",
+      "kGAI9XB0C48EfeUwbiO1UuKmFFt0GkVgkhfC"
+    )
+    conf.set("hadoop.security.authentication", "tbds")
+
+    conf.set(
+      "hadoop_security_authentication_tbds_username",
+      "espace_real_online"
+    )
+    conf.set(
+      "hadoop_security_authentication_tbds_securekey",
+      "0lgCn58kPFFghfmtDoda6KR8BmmW8RTK"
+    )
+    UserGroupInformation.setConfiguration(conf)
+    UserGroupInformation.loginUserFromSubject(null)
+    val user = UserGroupInformation.getLoginUser
+    println("asadsadas")
+    val fs = FileSystem.get(conf)
+    val path = new Path("/project/tougu/streampark")
+    val fileStatuses = fs.listStatus(path)
+    for (fileStatus <- fileStatuses) {
+      val isDir = fileStatus.isDirectory
+      val fullPath = fileStatus.getPath.toString
+      System.out.println("isDir:" + isDir + ",Path:" + fullPath)
+    }
+
   }
 }
