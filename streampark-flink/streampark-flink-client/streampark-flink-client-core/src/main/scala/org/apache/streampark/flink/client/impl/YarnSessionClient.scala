@@ -216,12 +216,13 @@ object YarnSessionClient extends YarnClientTrait {
           if (FinalApplicationStatus.UNDEFINED.equals(applicationStatus)) {
             // application is running
             val yarnClient = clusterDescriptor
-              .retrieve(ApplicationId.fromString(deployRequest.clusterId))
+              .retrieve(ConverterUtils.toApplicationId(deployRequest.clusterId))
               .getClusterClient
             if (yarnClient.getWebInterfaceURL != null) {
               return DeployResponse(yarnClient.getWebInterfaceURL, yarnClient.getClusterId.toString)
             }
           }
+
         } catch {
           case _: ApplicationNotFoundException =>
             logInfo("this applicationId have not managed by yarn ,need deploy ...")
@@ -262,7 +263,7 @@ object YarnSessionClient extends YarnClientTrait {
       if (
         FinalApplicationStatus.UNDEFINED.equals(
           clusterDescriptor.getYarnClient
-            .getApplicationReport(ApplicationId.fromString(shutDownRequest.clusterId))
+            .getApplicationReport(ConverterUtils.toApplicationId(shutDownRequest.clusterId))
             .getFinalApplicationStatus)
       ) {
         val clientProvider = clusterDescriptor.retrieve(yarnClusterDescriptor._1)
