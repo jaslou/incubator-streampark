@@ -98,13 +98,7 @@
 
         <dependency>
             <groupId>org.apache.hadoop</groupId>
-            <artifactId>hadoop-client-api</artifactId>
-            <optional>true</optional>
-        </dependency>
-
-        <dependency>
-            <groupId>org.apache.hadoop</groupId>
-            <artifactId>hadoop-client-runtime</artifactId>
+            <artifactId>hadoop-yarn-api</artifactId>
             <optional>true</optional>
         </dependency>
 
