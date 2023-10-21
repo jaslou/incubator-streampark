@@ -30,6 +30,7 @@ import org.apache.flink.yarn.configuration.YarnDeploymentTarget
 import org.apache.flink.yarn.entrypoint.YarnJobClusterEntrypoint
 import org.apache.hadoop.fs.{Path => HadoopPath}
 import org.apache.hadoop.yarn.api.records.ApplicationId
+import org.apache.hadoop.yarn.util.ConverterUtils
 
 import java.io.File
 import java.lang.{Boolean => JavaBool}
@@ -125,7 +126,7 @@ object YarnPerJobClient extends YarnClientTrait {
     val response = super.doCancel(cancelRequest, flinkConfig)
     val clusterClientFactory = new YarnClusterClientFactory
     val clusterDescriptor = clusterClientFactory.createClusterDescriptor(flinkConfig)
-    clusterDescriptor.killCluster(ApplicationId.fromString(cancelRequest.clusterId))
+    clusterDescriptor.killCluster(ConverterUtils.toApplicationId(cancelRequest.clusterId))
     response
   }
 
