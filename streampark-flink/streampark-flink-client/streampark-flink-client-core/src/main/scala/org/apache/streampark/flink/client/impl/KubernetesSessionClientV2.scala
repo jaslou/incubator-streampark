@@ -16,6 +16,7 @@
  */
 package org.apache.streampark.flink.client.impl
 
+import org.apache.streampark.common.Constant
 import org.apache.streampark.common.util.Logger
 import org.apache.streampark.common.zio.ZIOExt.{IOOps, OptionZIOOps}
 import org.apache.streampark.flink.client.`trait`.KubernetesClientV2Trait
@@ -88,7 +89,7 @@ object KubernetesSessionClientV2 extends KubernetesClientV2Trait with Logger {
     val flinkConfObj = originFlinkConfig.clone()
 
     val namespace = Option(submitReq.k8sSubmitParam.kubernetesNamespace)
-      .getOrElse("default")
+      .getOrElse(Constant.DEFAULT)
 
     val name = submitReq.k8sSubmitParam.kubernetesName
       .filter(str => StringUtils.isNotBlank(str))
@@ -124,6 +125,7 @@ object KubernetesSessionClientV2 extends KubernetesClientV2Trait with Logger {
       ))
   }
 
+  /** Deploy Flink cluster. */
   @throws[Throwable]
   def deploy(deployRequest: DeployRequest): DeployResponse = {
     logInfo(
@@ -189,6 +191,7 @@ object KubernetesSessionClientV2 extends KubernetesClientV2Trait with Logger {
     }
   }
 
+  /** Generate FlinkDeployment CR definition, it is a pure effect function. */
   private def genFlinkDeployDef(
       deployReq: DeployRequest,
       originFlinkConfig: Configuration): Either[FailureMessage, FlinkDeploymentDef] = {
@@ -196,7 +199,7 @@ object KubernetesSessionClientV2 extends KubernetesClientV2Trait with Logger {
     val flinkConfMap = originFlinkConfig.toMap.asScala.toMap
 
     val namespace = Option(deployReq.k8sDeployParam.kubernetesNamespace)
-      .getOrElse("default")
+      .getOrElse(Constant.DEFAULT)
 
     val name = Option(deployReq.k8sDeployParam.clusterId)
       .filter(str => StringUtils.isNotBlank(str))

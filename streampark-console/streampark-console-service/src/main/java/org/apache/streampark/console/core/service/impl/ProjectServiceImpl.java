@@ -17,6 +17,7 @@
 
 package org.apache.streampark.console.core.service.impl;
 
+import org.apache.streampark.common.Constant;
 import org.apache.streampark.common.conf.CommonConfig;
 import org.apache.streampark.common.conf.InternalConfigHolder;
 import org.apache.streampark.common.conf.Workspace;
@@ -141,7 +142,7 @@ public class ProjectServiceImpl extends ServiceImpl<ProjectMapper, Project>
     if (projectParam.getBuildState() != null) {
       project.setBuildState(projectParam.getBuildState());
       if (BuildStateEnum.NEED_REBUILD == BuildStateEnum.of(projectParam.getBuildState())) {
-        List<Application> applications = getApplications(project);
+        List<Application> applications = listApps(project);
         // Update deployment status
         applications.forEach(
             (app) -> {
@@ -176,9 +177,9 @@ public class ProjectServiceImpl extends ServiceImpl<ProjectMapper, Project>
   }
 
   @Override
-  public IPage<Project> page(Project project, RestRequest request) {
+  public IPage<Project> getPage(Project project, RestRequest request) {
     Page<Project> page = new MybatisPager<Project>().getDefaultPage(request);
-    return this.baseMapper.page(page, project);
+    return this.baseMapper.selectPage(page, project);
   }
 
   @Override
@@ -187,8 +188,8 @@ public class ProjectServiceImpl extends ServiceImpl<ProjectMapper, Project>
   }
 
   @Override
-  public List<Project> findByTeamId(Long teamId) {
-    return this.baseMapper.selectByTeamId(teamId);
+  public List<Project> listByTeamId(Long teamId) {
+    return this.baseMapper.selectProjectsByTeamId(teamId);
   }
 
   @Override
@@ -209,7 +210,7 @@ public class ProjectServiceImpl extends ServiceImpl<ProjectMapper, Project>
             },
             fileLogger -> {
               List<Application> applications =
-                  this.applicationManageService.getByProjectId(project.getId());
+                  this.applicationManageService.listByProjectId(project.getId());
               applications.forEach(
                   (app) -> {
                     fileLogger.info(
@@ -251,7 +252,7 @@ public class ProjectServiceImpl extends ServiceImpl<ProjectMapper, Project>
         project.getModule(), "Project module can't be null, please check.");
     File apps = new File(project.getDistHome(), project.getModule());
     for (File file : Objects.requireNonNull(apps.listFiles())) {
-      if (file.getName().endsWith(".jar")) {
+      if (file.getName().endsWith(Constant.JAR_SUFFIX)) {
         list.add(file.getName());
       }
     }
@@ -270,12 +271,12 @@ public class ProjectServiceImpl extends ServiceImpl<ProjectMapper, Project>
   }
 
   @Override
-  public List<Application> getApplications(Project project) {
-    return this.applicationManageService.getByProjectId(project.getId());
+  public List<Application> listApps(Project project) {
+    return this.applicationManageService.listByProjectId(project.getId());
   }
 
   @Override
-  public boolean checkExists(Project project) {
+  public boolean exists(Project project) {
     if (project.getId() != null) {
       Project proj = getById(project.getId());
       if (proj.getName().equals(project.getName())) {

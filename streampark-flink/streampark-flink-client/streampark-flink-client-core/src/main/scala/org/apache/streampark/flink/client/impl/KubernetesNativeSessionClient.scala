@@ -40,8 +40,12 @@ import scala.collection.convert.ImplicitConversions._
 import scala.language.postfixOps
 import scala.util.{Failure, Success, Try}
 
-/** kubernetes native session mode submit */
-@deprecated("use KubernetesSessionClientV2 instead")
+/**
+ * Kubernetes native session mode submit.
+ * @deprecated
+ *   Please use [[KubernetesSessionClientV2]] instead.
+ */
+@Deprecated
 object KubernetesNativeSessionClient extends KubernetesNativeClientTrait with Logger {
 
   @throws[Exception]
@@ -53,7 +57,7 @@ object KubernetesNativeSessionClient extends KubernetesNativeClientTrait with Lo
       StringUtils.isNotBlank(submitRequest.k8sSubmitParam.clusterId),
       s"[flink-submit] submit flink job failed, clusterId is null, mode=${flinkConfig.get(DeploymentOptions.TARGET)}"
     )
-    super.trySubmit(submitRequest, flinkConfig)(restApiSubmit)(jobGraphSubmit)
+    super.trySubmit(submitRequest, flinkConfig)(jobGraphSubmit, restApiSubmit)
   }
 
   /** Submit flink session job via rest api. */

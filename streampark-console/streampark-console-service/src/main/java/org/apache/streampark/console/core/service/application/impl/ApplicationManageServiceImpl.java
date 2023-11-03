@@ -250,12 +250,13 @@ public class ApplicationManageServiceImpl extends ServiceImpl<ApplicationMapper,
         appParam.setStateArray(newArray);
       }
     }
-    this.baseMapper.page(page, appParam);
+    this.baseMapper.selectPage(page, appParam);
     List<Application> records = page.getRecords();
     long now = System.currentTimeMillis();
 
     List<Long> appIds = records.stream().map(Application::getId).collect(Collectors.toList());
-    Map<Long, PipelineStatusEnum> pipeStates = appBuildPipeService.listPipelineStatus(appIds);
+    Map<Long, PipelineStatusEnum> pipeStates =
+        appBuildPipeService.listAppIdPipelineStatusMap(appIds);
 
     List<Application> newRecords =
         records.stream()
@@ -684,17 +685,17 @@ public class ApplicationManageServiceImpl extends ServiceImpl<ApplicationMapper,
   }
 
   @Override
-  public List<Application> getByProjectId(Long id) {
-    return baseMapper.getByProjectId(id);
+  public List<Application> listByProjectId(Long id) {
+    return baseMapper.selectAppsByProjectId(id);
   }
 
   @Override
-  public List<Application> getByTeamId(Long teamId) {
-    return baseMapper.getByTeamId(teamId);
+  public List<Application> listByTeamId(Long teamId) {
+    return baseMapper.selectAppsByTeamId(teamId);
   }
 
   @Override
-  public List<Application> getByTeamIdAndExecutionModes(
+  public List<Application> listByTeamIdAndExecutionModes(
       Long teamId, @Nonnull Collection<FlinkExecutionMode> executionModeEnums) {
     return getBaseMapper()
         .selectList(
@@ -707,8 +708,8 @@ public class ApplicationManageServiceImpl extends ServiceImpl<ApplicationMapper,
                         .collect(Collectors.toSet())));
   }
 
-  public List<Application> getProbeApps() {
-    return this.baseMapper.getProbeApps();
+  public List<Application> listProbeApps() {
+    return this.baseMapper.selectProbeApps();
   }
 
   @Override
@@ -752,7 +753,7 @@ public class ApplicationManageServiceImpl extends ServiceImpl<ApplicationMapper,
 
   @Override
   public Application getApp(Application appParam) {
-    Application application = this.baseMapper.getApp(appParam);
+    Application application = this.baseMapper.selectApp(appParam);
     ApplicationConfig config = configService.getEffective(appParam.getId());
     config = config == null ? configService.getLatest(appParam.getId()) : config;
     if (config != null) {

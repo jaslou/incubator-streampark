@@ -17,7 +17,7 @@
 
 package org.apache.streampark.console.core.service.impl;
 
-import org.apache.streampark.common.conf.ConfigConst;
+import org.apache.streampark.common.Constant;
 import org.apache.streampark.common.conf.Workspace;
 import org.apache.streampark.common.fs.FsOperator;
 import org.apache.streampark.common.util.ExceptionUtils;
@@ -99,12 +99,12 @@ public class ResourceServiceImpl extends ServiceImpl<ResourceMapper, Resource>
   @Autowired private FlinkSqlService flinkSqlService;
 
   @Override
-  public IPage<Resource> page(Resource resource, RestRequest restRequest) {
+  public IPage<Resource> getPage(Resource resource, RestRequest restRequest) {
     if (resource.getTeamId() == null) {
       return null;
     }
     Page<Resource> page = new MybatisPager<Resource>().getDefaultPage(restRequest);
-    return this.baseMapper.page(page, resource);
+    return this.baseMapper.selectPage(page, resource);
   }
 
   /**
@@ -223,7 +223,7 @@ public class ResourceServiceImpl extends ServiceImpl<ResourceMapper, Resource>
     this.removeById(resource);
   }
 
-  public List<Resource> findByTeamId(Long teamId) {
+  public List<Resource> listByTeamId(Long teamId) {
     LambdaQueryWrapper<Resource> queryWrapper =
         new LambdaQueryWrapper<Resource>().eq(Resource::getTeamId, teamId);
     return baseMapper.selectList(queryWrapper);
@@ -289,7 +289,7 @@ public class ResourceServiceImpl extends ServiceImpl<ResourceMapper, Resource>
           resp.put(EXCEPTION, ExceptionUtils.stringifyException(e));
           return RestResponse.success().data(resp);
         }
-        if (jarFile.getName().endsWith(ConfigConst.PYTHON_SUFFIX())) {
+        if (jarFile.getName().endsWith(Constant.PYTHON_SUFFIX)) {
           return RestResponse.success().data(resp);
         }
         Manifest manifest = Utils.getJarManifest(jarFile);
@@ -493,13 +493,13 @@ public class ResourceServiceImpl extends ServiceImpl<ResourceMapper, Resource>
 
   private List<Application> getResourceApplicationsById(Resource resource) {
     List<Application> dependApplications = new ArrayList<>();
-    List<Application> applications = applicationManageService.getByTeamId(resource.getTeamId());
+    List<Application> applications = applicationManageService.listByTeamId(resource.getTeamId());
     Map<Long, Application> applicationMap =
         applications.stream()
             .collect(Collectors.toMap(Application::getId, application -> application));
 
     // Get the application that depends on this resource
-    List<FlinkSql> flinkSqls = flinkSqlService.getByTeamId(resource.getTeamId());
+    List<FlinkSql> flinkSqls = flinkSqlService.listByTeamId(resource.getTeamId());
     for (FlinkSql flinkSql : flinkSqls) {
       String sqlTeamResource = flinkSql.getTeamResource();
       if (sqlTeamResource != null
