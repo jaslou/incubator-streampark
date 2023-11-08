@@ -18,7 +18,7 @@
 package org.apache.streampark.flink.client.impl
 
 import org.apache.streampark.common.Constant
-import org.apache.streampark.common.conf.{ConfigKeys, Workspace}
+import org.apache.streampark.common.conf.Workspace
 import org.apache.streampark.common.enums.FlinkDevelopmentMode
 import org.apache.streampark.common.fs.FsOperator
 import org.apache.streampark.common.util.{FileUtils, HdfsUtils, Utils}
@@ -102,8 +102,10 @@ object YarnApplicationClient extends YarnClientTrait {
         throw new RuntimeException(s"$pyVenv File does not exist")
       }
 
-      // including $app/lib
-      includingPipelineJars(submitRequest, flinkConfig)
+      val localLib: String = s"${Workspace.local.APP_WORKSPACE}/${submitRequest.id}/lib"
+      if (FileUtils.exists(localLib) && FileUtils.directoryNotBlank(localLib)) {
+        flinkConfig.safeSet(PipelineOptions.JARS, util.Arrays.asList(localLib))
+      }
 
       // yarn.ship-files
       val shipFiles = new util.ArrayList[String]()
