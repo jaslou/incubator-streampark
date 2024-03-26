@@ -17,9 +17,10 @@
 
 package org.apache.streampark.console.system.service.impl;
 
-import org.apache.streampark.common.util.Utils;
+import org.apache.streampark.common.util.AssertUtils;
 import org.apache.streampark.console.base.domain.RestRequest;
 import org.apache.streampark.console.base.exception.ApiAlertException;
+import org.apache.streampark.console.base.mybatis.pager.MybatisPager;
 import org.apache.streampark.console.system.entity.Member;
 import org.apache.streampark.console.system.entity.Team;
 import org.apache.streampark.console.system.entity.User;
@@ -41,7 +42,6 @@ import org.springframework.transaction.annotation.Transactional;
 import java.util.Arrays;
 import java.util.Date;
 import java.util.List;
-import java.util.Optional;
 import java.util.stream.Collectors;
 
 @Service
@@ -56,18 +56,18 @@ public class MemberServiceImpl extends ServiceImpl<MemberMapper, Member> impleme
 
   @Override
   @Transactional
-  public void deleteByRoleIds(String[] roleIds) {
+  public void removeByRoleIds(String[] roleIds) {
     Arrays.stream(roleIds).forEach(id -> baseMapper.deleteByRoleId(Long.valueOf(id)));
   }
 
   @Override
   @Transactional
-  public void deleteByUserId(Long userId) {
+  public void removeByUserId(Long userId) {
     baseMapper.deleteByUserId(userId);
   }
 
   @Override
-  public void deleteByTeamId(Long teamId) {
+  public void removeByTeamId(Long teamId) {
     LambdaQueryWrapper<Member> queryWrapper =
         new LambdaQueryWrapper<Member>().eq(Member::getTeamId, teamId);
     this.remove(queryWrapper);
@@ -76,9 +76,7 @@ public class MemberServiceImpl extends ServiceImpl<MemberMapper, Member> impleme
   @Override
   public IPage<Member> getPage(Member member, RestRequest request) {
     ApiAlertException.throwIfNull(member.getTeamId(), "The team id is required.");
-    Page<Member> page = new Page<>();
-    page.setCurrent(request.getPageNum());
-    page.setSize(request.getPageSize());
+    Page<Member> page = MybatisPager.getPage(request);
     return baseMapper.selectPage(page, member);
   }
 
@@ -114,69 +112,52 @@ public class MemberServiceImpl extends ServiceImpl<MemberMapper, Member> impleme
   public List<Long> listUserIdsByRoleId(Long roleId) {
     LambdaQueryWrapper<Member> queryWrapper =
         new LambdaQueryWrapper<Member>().eq(Member::getRoleId, roleId);
-    List<Member> list = baseMapper.selectList(queryWrapper);
-    return list.stream().map(Member::getUserId).collect(Collectors.toList());
+    List<Member> memberList = baseMapper.selectList(queryWrapper);
+    return memberList.stream().map(Member::getUserId).collect(Collectors.toList());
   }
 
   @Override
   public void createMember(Member member) {
-    User user =
-        Optional.ofNullable(userService.getByUsername(member.getUserName()))
-            .orElseThrow(
-                () ->
-                    new ApiAlertException(
-                        String.format("The username [%s] not found", member.getUserName())));
-    Optional.ofNullable(roleService.getById(member.getRoleId()))
-        .orElseThrow(
-            () ->
-                new ApiAlertException(
-                    String.format("The roleId [%s] not found", member.getRoleId())));
-    Team team =
-        Optional.ofNullable(teamService.getById(member.getTeamId()))
-            .orElseThrow(
-                () ->
-                    new ApiAlertException(
-                        String.format("The teamId [%s] not found", member.getTeamId())));
-    ApiAlertException.throwIfFalse(
-        findByUserId(member.getTeamId(), user.getUserId()) == null,
-        String.format(
-            "The user [%s] has been added the team [%s], please don't add it again.",
-            member.getUserName(), team.getTeamName()));
+    User user = userService.getByUsername(member.getUserName());
+    ApiAlertException.throwIfNull(user, "The username [%s] not found", member.getUserName());
+
+    ApiAlertException.throwIfNull(
+        roleService.getById(member.getRoleId()), "The roleId [%s] not found", member.getRoleId());
+    Team team = teamService.getById(member.getTeamId());
+    ApiAlertException.throwIfNull(team, "The teamId [%s] not found", member.getTeamId());
+    ApiAlertException.throwIfNotNull(
+        findByUserId(member.getTeamId(), user.getUserId()),
+        "The user [%s] has been added the team [%s], please don't add it again.",
+        member.getUserName(),
+        team.getTeamName());
 
     member.setId(null);
     member.setUserId(user.getUserId());
-    member.setCreateTime(new Date());
-    member.setModifyTime(team.getCreateTime());
+
+    Date date = new Date();
+    member.setCreateTime(date);
+    member.setModifyTime(date);
     this.save(member);
   }
 
   @Override
-  public void deleteMember(Member memberArg) {
-    Member member =
-        Optional.ofNullable(this.getById(memberArg.getId()))
-            .orElseThrow(
-                () ->
-                    new ApiAlertException(
-                        String.format("The member [id=%s] not found", memberArg.getId())));
+  public void remove(Long id) {
+    Member member = this.getById(id);
+    ApiAlertException.throwIfNull(member, "The member [id=%s] not found", id);
     this.removeById(member);
     userService.clearLastTeam(member.getUserId(), member.getTeamId());
   }
 
   @Override
   public void updateMember(Member member) {
-    Member oldMember =
-        Optional.ofNullable(this.getById(member.getId()))
-            .orElseThrow(
-                () ->
-                    new ApiAlertException(
-                        String.format("The member [id=%s] not found", member.getId())));
-    Utils.required(oldMember.getTeamId().equals(member.getTeamId()), "Team id cannot be changed.");
-    Utils.required(oldMember.getUserId().equals(member.getUserId()), "User id cannot be changed.");
-    Optional.ofNullable(roleService.getById(member.getRoleId()))
-        .orElseThrow(
-            () ->
-                new ApiAlertException(
-                    String.format("The roleId [%s] not found", member.getRoleId())));
+    Member oldMember = this.getById(member.getId());
+    ApiAlertException.throwIfNull(oldMember, "The member [id=%s] not found", member.getId());
+    AssertUtils.state(
+        oldMember.getTeamId().equals(member.getTeamId()), "Team id cannot be changed.");
+    AssertUtils.state(
+        oldMember.getUserId().equals(member.getUserId()), "User id cannot be changed.");
+    ApiAlertException.throwIfNull(
+        roleService.getById(member.getRoleId()), "The roleId [%s] not found", member.getRoleId());
     oldMember.setRoleId(member.getRoleId());
     updateById(oldMember);
   }

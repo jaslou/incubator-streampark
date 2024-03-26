@@ -17,7 +17,7 @@
 
 package org.apache.streampark.console.core.service.impl;
 
-import org.apache.streampark.common.util.Utils;
+import org.apache.streampark.common.util.AssertUtils;
 import org.apache.streampark.console.core.entity.Application;
 import org.apache.streampark.console.core.entity.ExternalLink;
 import org.apache.streampark.console.core.enums.PlaceholderTypeEnum;
@@ -53,8 +53,9 @@ public class ExternalLinkServiceImpl extends ServiceImpl<ExternalLinkMapper, Ext
     if (!this.check(externalLink)) {
       return;
     }
-    externalLink.setCreateTime(new Date());
-    externalLink.setModifyTime(new Date());
+    Date date = new Date();
+    externalLink.setCreateTime(date);
+    externalLink.setModifyTime(date);
     externalLink.setId(null);
     this.save(externalLink);
   }
@@ -76,7 +77,7 @@ public class ExternalLinkServiceImpl extends ServiceImpl<ExternalLinkMapper, Ext
   @Override
   public List<ExternalLink> render(Long appId) {
     Application app = applicationManageService.getById(appId);
-    Utils.notNull(app, "Application doesn't exist");
+    AssertUtils.notNull(app, "Application doesn't exist");
     List<ExternalLink> externalLink = this.list();
     if (externalLink != null && externalLink.size() > 0) {
       // Render the placeholder
@@ -86,13 +87,14 @@ public class ExternalLinkServiceImpl extends ServiceImpl<ExternalLinkMapper, Ext
   }
 
   private void renderLinkUrl(ExternalLink link, Application app) {
-    Map<String, String> map = new HashMap<>();
-    map.put(PlaceholderTypeEnum.JOB_ID.get(), app.getJobId());
-    map.put(PlaceholderTypeEnum.JOB_NAME.get(), app.getJobName());
-    map.put(PlaceholderTypeEnum.YARN_ID.get(), app.getAppId());
+    Map<String, String> placeholderValueMap = new HashMap<>();
+    placeholderValueMap.put(PlaceholderTypeEnum.JOB_ID.get(), app.getJobId());
+    placeholderValueMap.put(PlaceholderTypeEnum.JOB_NAME.get(), app.getJobName());
+    placeholderValueMap.put(PlaceholderTypeEnum.YARN_ID.get(), app.getAppId());
     PropertyPlaceholderHelper propertyPlaceholderHelper = new PropertyPlaceholderHelper("{", "}");
     link.setRenderedLinkUrl(
-        propertyPlaceholderHelper.replacePlaceholders(link.getLinkUrl().trim(), map::get));
+        propertyPlaceholderHelper.replacePlaceholders(
+            link.getLinkUrl().trim(), placeholderValueMap::get));
   }
 
   private boolean check(ExternalLink params) {
@@ -110,10 +112,10 @@ public class ExternalLinkServiceImpl extends ServiceImpl<ExternalLinkMapper, Ext
     if (result == null) {
       return true;
     }
-    Utils.required(
+    AssertUtils.required(
         !result.getBadgeName().equals(params.getBadgeName()),
         String.format("The name: %s is already existing.", result.getBadgeName()));
-    Utils.required(
+    AssertUtils.required(
         !result.getLinkUrl().equals(params.getLinkUrl()),
         String.format("The linkUrl: %s is already existing.", result.getLinkUrl()));
     return false;

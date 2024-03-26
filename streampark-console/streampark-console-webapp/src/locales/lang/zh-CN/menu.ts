@@ -19,14 +19,14 @@ export default {
     menu: '系统管理',
     user: '用户管理',
     role: '角色管理',
-    token: 'Token 管理',
+    token: '秘钥管理',
     team: '团队管理',
     member: '成员管理',
   },
   resource: {
     menu: '资源中心',
     project: '项目管理',
-    upload: '物料管理',
+    upload: '资源上传',
     variable: '变量管理',
   },
   flink: {

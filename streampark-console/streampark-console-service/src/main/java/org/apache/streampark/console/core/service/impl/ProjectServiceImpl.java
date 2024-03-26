@@ -21,10 +21,9 @@ import org.apache.streampark.common.Constant;
 import org.apache.streampark.common.conf.CommonConfig;
 import org.apache.streampark.common.conf.InternalConfigHolder;
 import org.apache.streampark.common.conf.Workspace;
+import org.apache.streampark.common.util.AssertUtils;
 import org.apache.streampark.common.util.CompletableFutureUtils;
 import org.apache.streampark.common.util.FileUtils;
-import org.apache.streampark.common.util.ThreadUtils;
-import org.apache.streampark.common.util.Utils;
 import org.apache.streampark.console.base.domain.ResponseCode;
 import org.apache.streampark.console.base.domain.RestRequest;
 import org.apache.streampark.console.base.domain.RestResponse;
@@ -34,7 +33,6 @@ import org.apache.streampark.console.base.util.GZipUtils;
 import org.apache.streampark.console.core.entity.Application;
 import org.apache.streampark.console.core.entity.Project;
 import org.apache.streampark.console.core.enums.BuildStateEnum;
-import org.apache.streampark.console.core.enums.GitCredentialEnum;
 import org.apache.streampark.console.core.enums.ReleaseStateEnum;
 import org.apache.streampark.console.core.mapper.ProjectMapper;
 import org.apache.streampark.console.core.service.ProjectService;
@@ -50,6 +48,7 @@ import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
@@ -68,9 +67,7 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.LinkedBlockingQueue;
-import java.util.concurrent.ThreadPoolExecutor;
+import java.util.concurrent.Executor;
 import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
@@ -85,15 +82,9 @@ public class ProjectServiceImpl extends ServiceImpl<ProjectMapper, Project>
 
   @Autowired private FlinkAppHttpWatcher flinkAppHttpWatcher;
 
-  private final ExecutorService executorService =
-      new ThreadPoolExecutor(
-          Runtime.getRuntime().availableProcessors() * 5,
-          Runtime.getRuntime().availableProcessors() * 10,
-          60L,
-          TimeUnit.SECONDS,
-          new LinkedBlockingQueue<>(1024),
-          ThreadUtils.threadFactory("streampark-build-executor"),
-          new ThreadPoolExecutor.AbortPolicy());
+  @Qualifier("streamparkBuildExecutor")
+  @Autowired
+  private Executor executorService;
 
   @Override
   public RestResponse create(Project project) {
@@ -104,37 +95,29 @@ public class ProjectServiceImpl extends ServiceImpl<ProjectMapper, Project>
 
     ApiAlertException.throwIfTrue(count > 0, "project name already exists, add project failed");
 
-    project.setCreateTime(new Date());
+    Date date = new Date();
+    project.setCreateTime(date);
+    project.setModifyTime(date);
     boolean status = save(project);
 
     if (status) {
       return response.message("Add project successfully").data(true);
-    } else {
-      return response.message("Add project failed").data(false);
     }
+    return response.message("Add project failed").data(false);
   }
 
   @Override
   public boolean update(Project projectParam) {
     Project project = getById(projectParam.getId());
-    Utils.notNull(project);
+    AssertUtils.notNull(project);
     ApiAlertException.throwIfFalse(
         project.getTeamId().equals(projectParam.getTeamId()),
         "TeamId can't be changed, update project failed.");
     ApiAlertException.throwIfFalse(
         !project.getBuildState().equals(BuildStateEnum.BUILDING.get()),
         "The project is being built, update project failed.");
-    project.setName(projectParam.getName());
-    project.setUrl(projectParam.getUrl());
-    project.setBranches(projectParam.getBranches());
-    project.setGitCredential(projectParam.getGitCredential());
-    project.setPrvkeyPath(projectParam.getPrvkeyPath());
-    project.setUserName(projectParam.getUserName());
-    project.setPassword(projectParam.getPassword());
-    project.setPom(projectParam.getPom());
-    project.setDescription(projectParam.getDescription());
-    project.setBuildArgs(projectParam.getBuildArgs());
-    if (GitCredentialEnum.isSSH(project.getGitCredential())) {
+    updateInternal(projectParam, project);
+    if (project.isSshRepositoryUrl()) {
       project.setUserName(null);
     } else {
       project.setPrvkeyPath(null);
@@ -157,10 +140,22 @@ public class ProjectServiceImpl extends ServiceImpl<ProjectMapper, Project>
     return true;
   }
 
+  private static void updateInternal(Project projectParam, Project project) {
+    project.setName(projectParam.getName());
+    project.setUrl(projectParam.getUrl());
+    project.setBranches(projectParam.getBranches());
+    project.setPrvkeyPath(projectParam.getPrvkeyPath());
+    project.setUserName(projectParam.getUserName());
+    project.setPassword(projectParam.getPassword());
+    project.setPom(projectParam.getPom());
+    project.setDescription(projectParam.getDescription());
+    project.setBuildArgs(projectParam.getBuildArgs());
+  }
+
   @Override
   public boolean removeById(Long id) {
     Project project = getById(id);
-    Utils.notNull(project);
+    AssertUtils.notNull(project);
     LambdaQueryWrapper<Application> queryWrapper =
         new LambdaQueryWrapper<Application>().eq(Application::getProjectId, id);
     long count = applicationManageService.count(queryWrapper);
@@ -178,7 +173,7 @@ public class ProjectServiceImpl extends ServiceImpl<ProjectMapper, Project>
 
   @Override
   public IPage<Project> getPage(Project project, RestRequest request) {
-    Page<Project> page = new MybatisPager<Project>().getDefaultPage(request);
+    Page<Project> page = MybatisPager.getPage(request);
     return this.baseMapper.selectPage(page, project);
   }
 
@@ -230,9 +225,9 @@ public class ProjectServiceImpl extends ServiceImpl<ProjectMapper, Project>
   }
 
   @Override
-  public List<String> modules(Long id) {
+  public List<String> listModules(Long id) {
     Project project = getById(id);
-    Utils.notNull(project);
+    AssertUtils.notNull(project);
 
     if (BuildStateEnum.SUCCESSFUL != BuildStateEnum.of(project.getBuildState())
         || !project.getDistHome().exists()) {
@@ -246,17 +241,17 @@ public class ProjectServiceImpl extends ServiceImpl<ProjectMapper, Project>
   }
 
   @Override
-  public List<String> jars(Project project) {
-    List<String> list = new ArrayList<>(0);
+  public List<String> listJars(Project project) {
+    List<String> jarList = new ArrayList<>(0);
     ApiAlertException.throwIfNull(
         project.getModule(), "Project module can't be null, please check.");
     File apps = new File(project.getDistHome(), project.getModule());
     for (File file : Objects.requireNonNull(apps.listFiles())) {
       if (file.getName().endsWith(Constant.JAR_SUFFIX)) {
-        list.add(file.getName());
+        jarList.add(file.getName());
       }
     }
-    return list;
+    return jarList;
   }
 
   @Override
@@ -296,13 +291,13 @@ public class ProjectServiceImpl extends ServiceImpl<ProjectMapper, Project>
       if (!unzipFile.exists()) {
         GZipUtils.deCompress(file.getAbsolutePath(), file.getParentFile().getAbsolutePath());
       }
-      List<Map<String, Object>> list = new ArrayList<>();
+      List<Map<String, Object>> confList = new ArrayList<>();
       File[] files = unzipFile.listFiles(x -> "conf".equals(x.getName()));
-      Utils.notNull(files);
+      AssertUtils.notNull(files);
       for (File item : files) {
-        eachFile(item, list, true);
+        eachFile(item, confList, true);
       }
-      return list;
+      return confList;
     } catch (Exception e) {
       log.info(e.getMessage());
     }
@@ -312,30 +307,30 @@ public class ProjectServiceImpl extends ServiceImpl<ProjectMapper, Project>
   private void eachFile(File file, List<Map<String, Object>> list, Boolean isRoot) {
     if (file != null && file.exists() && file.listFiles() != null) {
       if (isRoot) {
-        Map<String, Object> map = new HashMap<>(0);
-        map.put("key", file.getName());
-        map.put("title", file.getName());
-        map.put("value", file.getAbsolutePath());
+        Map<String, Object> fileMap = new HashMap<>(0);
+        fileMap.put("key", file.getName());
+        fileMap.put("title", file.getName());
+        fileMap.put("value", file.getAbsolutePath());
         List<Map<String, Object>> children = new ArrayList<>();
         eachFile(file, children, false);
         if (!children.isEmpty()) {
-          map.put("children", children);
+          fileMap.put("children", children);
         }
-        list.add(map);
+        list.add(fileMap);
       } else {
         for (File item : Objects.requireNonNull(file.listFiles())) {
           String title = item.getName();
           String value = item.getAbsolutePath();
-          Map<String, Object> map = new HashMap<>(0);
-          map.put("key", title);
-          map.put("title", title);
-          map.put("value", value);
+          Map<String, Object> fileMap = new HashMap<>(0);
+          fileMap.put("key", title);
+          fileMap.put("title", title);
+          fileMap.put("value", value);
           List<Map<String, Object>> children = new ArrayList<>();
           eachFile(item, children, false);
           if (!children.isEmpty()) {
-            map.put("children", children);
+            fileMap.put("children", children);
           }
-          list.add(map);
+          list.add(fileMap);
         }
       }
     }

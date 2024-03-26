@@ -20,12 +20,13 @@ package org.apache.streampark.console.system.service.impl;
 import org.apache.streampark.console.base.domain.Constant;
 import org.apache.streampark.console.base.domain.RestRequest;
 import org.apache.streampark.console.base.exception.ApiAlertException;
+import org.apache.streampark.console.base.mybatis.pager.MybatisPager;
 import org.apache.streampark.console.system.entity.Role;
 import org.apache.streampark.console.system.entity.RoleMenu;
 import org.apache.streampark.console.system.mapper.RoleMapper;
 import org.apache.streampark.console.system.mapper.RoleMenuMapper;
 import org.apache.streampark.console.system.service.MemberService;
-import org.apache.streampark.console.system.service.RoleMenuServie;
+import org.apache.streampark.console.system.service.RoleMenuService;
 import org.apache.streampark.console.system.service.RoleService;
 
 import org.apache.commons.collections.CollectionUtils;
@@ -56,13 +57,11 @@ public class RoleServiceImpl extends ServiceImpl<RoleMapper, Role> implements Ro
 
   @Autowired private MemberService memberService;
 
-  @Autowired private RoleMenuServie roleMenuService;
+  @Autowired private RoleMenuService roleMenuService;
 
   @Override
   public IPage<Role> getPage(Role role, RestRequest request) {
-    Page<Role> page = new Page<>();
-    page.setCurrent(request.getPageNum());
-    page.setSize(request.getPageSize());
+    Page<Role> page = MybatisPager.getPage(request);
     return this.baseMapper.selectPage(page, role);
   }
 
@@ -73,7 +72,9 @@ public class RoleServiceImpl extends ServiceImpl<RoleMapper, Role> implements Ro
 
   @Override
   public void createRole(Role role) {
-    role.setCreateTime(new Date());
+    Date date = new Date();
+    role.setCreateTime(date);
+    role.setModifyTime(date);
     this.save(role);
 
     String[] menuIds = role.getMenuId().split(StringPool.COMMA);
@@ -81,7 +82,7 @@ public class RoleServiceImpl extends ServiceImpl<RoleMapper, Role> implements Ro
   }
 
   @Override
-  public void deleteRole(Long roleId) {
+  public void removeById(Long roleId) {
     Role role =
         Optional.ofNullable(this.getById(roleId))
             .orElseThrow(
@@ -94,8 +95,8 @@ public class RoleServiceImpl extends ServiceImpl<RoleMapper, Role> implements Ro
         String.format(
             "There are some users of role %s, delete role failed, please unbind it first.",
             role.getRoleName()));
-    this.removeById(roleId);
-    this.roleMenuService.deleteByRoleId(roleId);
+    super.removeById(roleId);
+    this.roleMenuService.removeByRoleId(roleId);
   }
 
   @Override

@@ -17,12 +17,13 @@
 
 package org.apache.streampark.console.system.service.impl;
 
+import org.apache.streampark.common.util.AssertUtils;
 import org.apache.streampark.common.util.DateUtils;
-import org.apache.streampark.common.util.Utils;
 import org.apache.streampark.console.base.domain.ResponseCode;
 import org.apache.streampark.console.base.domain.RestRequest;
 import org.apache.streampark.console.base.domain.RestResponse;
 import org.apache.streampark.console.base.exception.ApiAlertException;
+import org.apache.streampark.console.base.mybatis.pager.MybatisPager;
 import org.apache.streampark.console.base.properties.ShiroProperties;
 import org.apache.streampark.console.base.util.ShaHashUtils;
 import org.apache.streampark.console.base.util.WebUtils;
@@ -90,12 +91,9 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements Us
 
   @Override
   public IPage<User> getPage(User user, RestRequest request) {
-    Page<User> page = new Page<>();
-    page.setCurrent(request.getPageNum());
-    page.setSize(request.getPageSize());
+    Page<User> page = MybatisPager.getPage(request);
     IPage<User> resPage = this.baseMapper.selectPage(page, user);
-
-    Utils.notNull(resPage);
+    AssertUtils.notNull(resPage);
     if (resPage.getTotal() == 0) {
       resPage.setRecords(Collections.emptyList());
     }
@@ -113,7 +111,9 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements Us
 
   @Override
   public void createUser(User user) {
-    user.setCreateTime(new Date());
+    Date date = new Date();
+    user.setCreateTime(date);
+    user.setModifyTime(date);
     if (StringUtils.isNoneBlank(user.getPassword())) {
       String salt = ShaHashUtils.getRandomSalt();
       String password = ShaHashUtils.encrypt(salt, user.getPassword());
@@ -197,7 +197,7 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements Us
   @Override
   public void setLastTeam(Long teamId, Long userId) {
     User user = getById(userId);
-    Utils.notNull(user);
+    AssertUtils.notNull(user);
     user.setLastTeamId(teamId);
     this.baseMapper.updateById(user);
   }
@@ -205,7 +205,7 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements Us
   @Override
   public void clearLastTeam(Long userId, Long teamId) {
     User user = getById(userId);
-    Utils.notNull(user);
+    AssertUtils.notNull(user);
     if (!teamId.equals(user.getLastTeamId())) {
       return;
     }

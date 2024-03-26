@@ -17,7 +17,7 @@
 
 package org.apache.streampark.console.core.service.impl;
 
-import org.apache.streampark.common.util.Utils;
+import org.apache.streampark.common.util.AssertUtils;
 import org.apache.streampark.console.core.service.SqlCompleteService;
 
 import com.google.common.collect.Sets;
@@ -56,7 +56,7 @@ public class SqlCompleteServiceImpl implements SqlCompleteService {
 
   @Override
   public List<String> getComplete(String sql) {
-    if (sql.length() > 0 && BLACK_SET.contains(sql.charAt(sql.length() - 1))) {
+    if (!sql.isEmpty() && BLACK_SET.contains(sql.charAt(sql.length() - 1))) {
       return new ArrayList<>();
     }
     String[] temp = sql.split("\\s");
@@ -82,9 +82,8 @@ public class SqlCompleteServiceImpl implements SqlCompleteService {
         // This step is very critical. If the same name is not judged and the count is different,
         // then the set collection will default to the same element, and it will be overwritten.
         return this.word.compareTo(other.word) * -1;
-      } else {
-        return num * -1;
       }
+      return num * -1;
     }
 
     @Override
@@ -185,7 +184,7 @@ public class SqlCompleteServiceImpl implements SqlCompleteService {
         nowStep = nowStep.get(nowChar).getNext();
         loc += 1;
       }
-      Utils.notNull(preNode);
+      AssertUtils.notNull(preNode);
       preNode.setStop();
       preNode.setCount(count);
     }
@@ -226,7 +225,7 @@ public class SqlCompleteServiceImpl implements SqlCompleteService {
      * @param now current FST node
      */
     private void getDFSWord(List<WordWithFrequency> returnSource, String buffer, TreeNode now) {
-      if (now.getNext().size() == 0 || now.isStop()) {
+      if (now.getNext().isEmpty() || now.isStop()) {
         returnSource.add(new WordWithFrequency(buffer + now.getStep(), now.getCount()));
       } else {
         now.getNext()
